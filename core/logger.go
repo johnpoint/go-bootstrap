@@ -5,10 +5,15 @@ import "go.uber.org/zap"
 type Logger interface {
 	Info(msg string, field ...zap.Field)
 	Error(msg string, field ...zap.Field)
+	Debug(msg string, field ...zap.Field)
 }
 
 type DefaultLogger struct {
 	l *zap.Logger
+}
+
+func (d *DefaultLogger) Debug(msg string, field ...zap.Field) {
+	d.l.Debug(msg, field...)
 }
 
 func (d *DefaultLogger) Info(msg string, field ...zap.Field) {
