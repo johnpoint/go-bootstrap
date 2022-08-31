@@ -1,4 +1,4 @@
-package errorhelper
+package berror
 
 import (
 	"fmt"

@@ -1,4 +1,4 @@
-package bootstrap
+package core
 
 import "go.uber.org/zap"
 
