@@ -121,6 +121,10 @@ func NewDefaultLogger() *Logger {
 	}
 }
 
+func (l *Logger) Debug(msg string, fields ...zap.Field) {
+	l.l.Debug(msg, fields...)
+}
+
 func (l *Logger) Info(msg string, fields ...zap.Field) {
 	l.l.Info(msg, fields...)
 }
