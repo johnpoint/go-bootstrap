@@ -4,13 +4,13 @@ import (
 	"fmt"
 )
 
+// 通用错误码
 var (
-	// 通用错误码
 	OK      = &BErr{Code: 0, Message: "OK"}
 	Unknown = &BErr{Code: -1, Message: "未知错误"}
 )
 
-// Err 定义错误
+// BErr 定义错误
 type BErr struct {
 	Code      int    // 错误码
 	Message   string // 展示给用户看的
