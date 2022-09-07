@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/go-playground/validator/v10 v10.11.0
 	github.com/json-iterator/go v1.1.12
-	github.com/rabbitmq/amqp091-go v1.4.0
+	github.com/rabbitmq/amqp091-go v1.5.0
 	go.uber.org/zap v1.23.0
 )
 
