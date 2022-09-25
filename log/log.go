@@ -140,3 +140,7 @@ func (l *Logger) Warn(msg string, fields ...zap.Field) {
 func (l *Logger) Panic(msg string, fields ...zap.Field) {
 	l.l.Panic(msg, fields...)
 }
+
+func (l *Logger) Raw() *zap.Logger {
+	return l.l
+}
