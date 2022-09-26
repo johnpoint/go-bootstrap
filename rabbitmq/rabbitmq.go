@@ -83,6 +83,7 @@ func (r *RabbitMQ) StartProducer() (chan<- []byte, error) {
 	}
 	var err error
 	r.producer = &producer{
+		ctx:            r.ctx,
 		key:            r.config.BindKey,
 		exchange:       r.config.ExchangeName,
 		deliveryMode:   r.config.DeliveryMode,

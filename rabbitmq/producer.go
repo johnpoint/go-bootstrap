@@ -1,12 +1,14 @@
 package rabbitmq
 
 import (
+	"context"
 	"errors"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"go.uber.org/zap"
 )
 
 type producer struct {
+	ctx            context.Context
 	exchange       string
 	key            string
 	contentType    string
@@ -57,7 +59,8 @@ func (p *producer) Send(body []byte, channel *channel) {
 	retryCount := 0
 	maxReconnectCount := 3
 	for {
-		err := channel.Chan[0].Publish(
+		err := channel.Chan[0].PublishWithContext(
+			p.ctx,
 			p.exchange,
 			p.key,
 			false,
