@@ -8,8 +8,20 @@ type Ep interface {
 	Path() string
 	HandlerFunc() gin.HandlerFunc
 	Middleware() []gin.HandlerFunc
-	SetMiddleware()
+	SetMiddleware(middlewares []gin.HandlerFunc)
 	Codec() Codec
 	HttpResponseError(w http.ResponseWriter, code int, err error)
 	HttpResponse(w http.ResponseWriter, code int, v any)
+}
+
+type BaseEndpoint struct {
+	MiddlewareFunc []gin.HandlerFunc
+}
+
+func (b BaseEndpoint) SetMiddleware(middlewares []gin.HandlerFunc) {
+	b.MiddlewareFunc = middlewares
+}
+
+func (b BaseEndpoint) Middleware() []gin.HandlerFunc {
+	return b.MiddlewareFunc
 }
