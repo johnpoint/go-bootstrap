@@ -15,6 +15,7 @@ func GetLogger() *Logger {
 }
 
 var (
+	Debug = l.Debug
 	Info  = l.Info
 	Error = l.Error
 	Warn  = l.Warn

@@ -7,6 +7,7 @@ type Ep interface {
 	Method() string
 	Path() string
 	HandlerFunc() gin.HandlerFunc
+	Middleware() []gin.HandlerFunc
 	Codec() Codec
 	HttpResponseError(w http.ResponseWriter, code int, err error)
 	HttpResponse(w http.ResponseWriter, code int, v any)

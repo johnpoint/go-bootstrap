@@ -5,36 +5,26 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-var endpoints = []Ep{}
-
-func RegisterEndpoints(g *gin.Engine) error {
-	for _, v := range endpoints {
-		err := registerEndpoint(g, v)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func registerEndpoint(g *gin.Engine, ep Ep) error {
+func RegisterEndpoint(g *gin.Engine, ep Ep) error {
+	handles := ep.Middleware()
+	handles = append(handles, ep.HandlerFunc())
 	switch ep.Method() {
 	case "GET":
-		g.GET(ep.Path(), ep.HandlerFunc())
+		g.GET(ep.Path(), handles...)
 	case "POST":
-		g.POST(ep.Path(), ep.HandlerFunc())
+		g.POST(ep.Path(), handles...)
 	case "PUT":
-		g.PUT(ep.Path(), ep.HandlerFunc())
+		g.PUT(ep.Path(), handles...)
 	case "DELETE":
-		g.DELETE(ep.Path(), ep.HandlerFunc())
+		g.DELETE(ep.Path(), handles...)
 	case "PATCH":
-		g.PATCH(ep.Path(), ep.HandlerFunc())
+		g.PATCH(ep.Path(), handles...)
 	case "HEAD":
-		g.HEAD(ep.Path(), ep.HandlerFunc())
+		g.HEAD(ep.Path(), handles...)
 	case "OPTIONS":
-		g.OPTIONS(ep.Path(), ep.HandlerFunc())
+		g.OPTIONS(ep.Path(), handles...)
 	case "Any":
-		g.Any(ep.Path(), ep.HandlerFunc())
+		g.Any(ep.Path(), handles...)
 	default:
 		return errors.New("method invalid")
 	}
