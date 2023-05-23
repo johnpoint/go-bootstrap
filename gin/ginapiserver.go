@@ -2,19 +2,26 @@ package gin
 
 import (
 	"context"
+	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/johnpoint/go-bootstrap/core"
 	"github.com/johnpoint/go-bootstrap/log"
+	"github.com/johnpoint/go-bootstrap/utils"
 	"go.uber.org/zap"
 	"net/http"
 	"time"
 )
 
+var apiServer = &ApiServer{}
+
+func Server() *ApiServer {
+	return apiServer
+}
+
 func NewApiServer(listen string, middlewares ...gin.HandlerFunc) *ApiServer {
-	return &ApiServer{
-		listen:      listen,
-		middlewares: middlewares,
-	}
+	apiServer.listen = listen
+	apiServer.middlewares = middlewares
+	return apiServer
 }
 
 type ApiServer struct {
@@ -24,6 +31,14 @@ type ApiServer struct {
 }
 
 var _ core.Component = (*ApiServer)(nil)
+
+func (d *ApiServer) AddEndpoint(ep Ep) error {
+	if _, has := d.endpoints[utils.Md5(ep.Path()+ep.Method())]; has {
+		return errors.New("duplicate route")
+	}
+	d.endpoints[utils.Md5(ep.Path()+ep.Method())] = ep
+	return nil
+}
 
 func (d *ApiServer) Init(ctx context.Context) error {
 	gin.SetMode(gin.ReleaseMode)
