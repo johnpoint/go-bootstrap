@@ -1,6 +1,9 @@
 package gin
 
-import "net/http"
+import (
+	"io"
+	"net/http"
+)
 import "github.com/gin-gonic/gin"
 
 type Ep interface {
@@ -9,7 +12,9 @@ type Ep interface {
 	HandlerFunc() gin.HandlerFunc
 	Middleware() []gin.HandlerFunc
 	SetMiddleware(middlewares []gin.HandlerFunc)
-	Codec() Codec
+	Decoder(r io.Reader) Decoder
+	Encoder(w io.Writer) Encoder
+	Mime() string
 	HttpResponseError(w http.ResponseWriter, code int, err error)
 	HttpResponse(w http.ResponseWriter, code int, v any)
 }
