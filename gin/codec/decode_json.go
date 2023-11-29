@@ -6,8 +6,8 @@ import (
 	"io"
 )
 
-type JSONDecoder struct{}
+type JSONRequest struct{}
 
-func (j JSONDecoder) NewDecoder(r io.Reader) gin.Decoder {
+func (d JSONRequest) Decoder(r io.Reader) gin.Decoder {
 	return json.NewDecoder(r)
 }
