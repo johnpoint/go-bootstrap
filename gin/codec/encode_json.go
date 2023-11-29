@@ -19,12 +19,12 @@ func (j JSONEncoder) NewEncoder(w io.Writer) gin.Encoder {
 	return json.NewEncoder(w)
 }
 
-type JsonResponse struct {
+type JSONResponse struct {
 	JSONMime
 	JSONEncoder
 }
 
-func (d JsonResponse) HttpResponseError(w http.ResponseWriter, code int, err error) {
+func (d JSONResponse) HttpResponseError(w http.ResponseWriter, code int, err error) {
 	if code < 200 || code > 599 {
 		code = http.StatusInternalServerError
 	}
@@ -32,7 +32,7 @@ func (d JsonResponse) HttpResponseError(w http.ResponseWriter, code int, err err
 	d.HttpResponse(w, code, err)
 }
 
-func (d JsonResponse) HttpResponse(w http.ResponseWriter, code int, v any) {
+func (d JSONResponse) HttpResponse(w http.ResponseWriter, code int, v any) {
 	w.Header().Add("Content-Type", d.Mime())
 	w.WriteHeader(code)
 	d.NewEncoder(w).Encode(v)
