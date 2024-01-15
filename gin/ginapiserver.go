@@ -33,6 +33,9 @@ type ApiServer struct {
 var _ core.Component = (*ApiServer)(nil)
 
 func (d *ApiServer) AddEndpoint(ep Ep) error {
+	if d.endpoints == nil {
+		d.endpoints = make(map[string]Ep)
+	}
 	if _, has := d.endpoints[utils.Md5(ep.Path()+ep.Method())]; has {
 		return errors.New("duplicate route")
 	}
