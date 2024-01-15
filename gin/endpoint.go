@@ -13,7 +13,7 @@ type Ep interface {
 	Middleware() []gin.HandlerFunc
 	SetMiddleware(middlewares []gin.HandlerFunc)
 	NewEncoder(w io.Writer) Encoder
-	NewDecoder(r io.Reader) Decoder
+	NewDecoder(r *http.Request) Decoder
 	HttpResponseError(w http.ResponseWriter, code int, err error)
 	HttpResponse(w http.ResponseWriter, code int, v any)
 }

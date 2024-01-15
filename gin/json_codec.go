@@ -8,8 +8,8 @@ import (
 
 type JSONDecoder struct{}
 
-func (j JSONDecoder) NewDecoder(r io.Reader) Decoder {
-	return json.NewDecoder(r)
+func (j JSONDecoder) NewDecoder(r *http.Request) Decoder {
+	return json.NewDecoder(r.Body)
 }
 
 type JSONEncoder struct{}

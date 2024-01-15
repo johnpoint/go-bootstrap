@@ -20,7 +20,7 @@ func Endpoint[Request any, Response any](svc Ep, f func(ctx context.Context, req
 		w := c.Writer
 
 		var req Request
-		if err := svc.NewDecoder(r.Body).Decode(&req); err != nil {
+		if err := svc.NewDecoder(r).Decode(&req); err != nil {
 			svc.HttpResponse(w, http.StatusBadRequest, err)
 			return
 		}
