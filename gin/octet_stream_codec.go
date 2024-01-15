@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
-	"strings"
 )
 
 type OctetStreamEncoder struct {
@@ -40,12 +39,12 @@ func (o OctetStreamEncoder) HttpResponse(w http.ResponseWriter, code int, v any)
 		w.Header().Set("Content-Type", "application/octet-stream")
 		w.Header().Set("name", filename)
 		w.Header().Set("Access-Control-Expose-Headers", "name")
-		if _, err := io.Copy(o.w, strings.NewReader(content)); err != nil {
+		_, err := w.Write([]byte(content))
+		if err != nil {
 			return
 		}
 	}
 	w.WriteHeader(code)
-	o.NewEncoder(w).Encode(v)
 }
 
 func (o OctetStreamEncoder) Encode(v any) error {
