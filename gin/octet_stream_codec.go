@@ -30,7 +30,7 @@ func (o OctetStreamEncoder) HttpResponseError(w http.ResponseWriter, code int, e
 }
 
 func (o OctetStreamEncoder) HttpResponse(w http.ResponseWriter, code int, v any) {
-	value := reflect.ValueOf(o).Elem()
+	value := reflect.ValueOf(v).Elem()
 	if value.Kind() == reflect.Struct {
 		filename := value.FieldByName("FileName").String()
 		content := value.FieldByName("FileBody").String()
