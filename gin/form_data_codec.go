@@ -27,10 +27,6 @@ func (f FormDataFileDecoder) Decode(v any) error {
 	return nil
 }
 
-func (f FormDataFileDecoder) Mime() string {
-	return "multipart/form-data"
-}
-
 func (f FormDataFileDecoder) NewDecoder(r *http.Request) Decoder {
 	f.r = r
 	return f
