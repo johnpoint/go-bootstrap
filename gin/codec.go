@@ -3,15 +3,8 @@ package gin
 import (
 	"context"
 	"github.com/gin-gonic/gin"
-	"io"
 	"net/http"
 )
-
-type Codec interface {
-	Mime() string
-	NewEncoder(w io.Writer) Encoder
-	NewDecoder(r io.Reader) Decoder
-}
 
 type Encoder interface {
 	Encode(v any) error
@@ -27,7 +20,7 @@ func Endpoint[Request any, Response any](svc Ep, f func(ctx context.Context, req
 		w := c.Writer
 
 		var req Request
-		if err := svc.Codec().NewDecoder(r.Body).Decode(&req); err != nil {
+		if err := svc.NewDecoder(r.Body).Decode(&req); err != nil {
 			svc.HttpResponse(w, http.StatusBadRequest, err)
 			return
 		}
