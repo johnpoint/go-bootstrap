@@ -12,6 +12,7 @@ type FormDataFileDecoder struct {
 
 func (f FormDataFileDecoder) Decode(v any) error {
 	req, _ := http.NewRequest("", "", f.r)
+	req.Header.Set("Content-Type", "multipart/form-data")
 	file, _, err := req.FormFile("file")
 	if err != nil {
 		return err
