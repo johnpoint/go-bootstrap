@@ -4,7 +4,6 @@ import (
 	"io"
 	"net/http"
 	"reflect"
-	"strings"
 )
 
 type TextEncoder struct {
@@ -23,7 +22,7 @@ func (t TextEncoder) Encode(v any) error {
 	value := reflect.ValueOf(v).Elem()
 	if value.Kind() == reflect.Struct {
 		content := value.FieldByName("Body").String()
-		_, err := io.Copy(t.w, strings.NewReader(content))
+		_, err := t.w.Write([]byte(content))
 		if err != nil {
 			return err
 		}
