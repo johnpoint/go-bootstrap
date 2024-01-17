@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"log/slog"
 	"time"
 )
 
@@ -14,7 +15,7 @@ type RabbitMQ struct {
 	producer *producer
 	handle   func(context.Context, *amqp.Delivery) Action
 	config   *Config
-	logger   Logger
+	logger   *slog.Logger
 }
 
 func (r *RabbitMQ) WithContext(ctx context.Context) *RabbitMQ {
@@ -27,7 +28,7 @@ func (r *RabbitMQ) SetAlarm(alarm Alarm) *RabbitMQ {
 	return r
 }
 
-func (r *RabbitMQ) WithLogger(logger Logger) *RabbitMQ {
+func (r *RabbitMQ) WithLogger(logger *slog.Logger) *RabbitMQ {
 	r.logger = logger
 	return r
 }

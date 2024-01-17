@@ -3,11 +3,9 @@ package apimiddleware
 import (
 	"bytes"
 	"github.com/gin-gonic/gin"
-	"github.com/johnpoint/go-bootstrap/log"
-	"github.com/johnpoint/go-bootstrap/utils"
-	jsoniter "github.com/json-iterator/go"
-	"go.uber.org/zap"
+	"github.com/johnpoint/go-bootstrap/v2/utils"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 )
@@ -57,14 +55,6 @@ func LogPlusMiddleware() gin.HandlerFunc {
 
 		r.Resp = customWriter.body.String()
 		r.Out = time.Now()
-		logReq(&r)
+		slog.Info("LogPlusMiddleware", slog.Any("info", r))
 	}
-}
-
-func logReq(req *reqLog) {
-	logByte, err := jsoniter.Marshal(req)
-	if err != nil {
-		return
-	}
-	log.Info("LogPlusMiddleware", zap.Strings("info", []string{req.Method, req.URL, string(logByte)}))
 }

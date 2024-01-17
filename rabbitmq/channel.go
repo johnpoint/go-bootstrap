@@ -3,11 +3,12 @@ package rabbitmq
 import (
 	"errors"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"log/slog"
 	"sync"
 )
 
 type channel struct {
-	logger Logger
+	logger *slog.Logger
 	Chan   []*amqp.Channel
 	Conn   *amqp.Connection
 	config *Config

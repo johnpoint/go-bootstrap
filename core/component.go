@@ -3,7 +3,7 @@ package core
 import (
 	"context"
 	"errors"
-	"fmt"
+	"log/slog"
 )
 
 type Component interface {
@@ -15,7 +15,7 @@ type EmptyComponent struct {
 }
 
 func (d *EmptyComponent) Init(ctx context.Context) error {
-	fmt.Println("EmptyComponent Init")
+	slog.Debug("EmptyComponent Init")
 	if d.error {
 		return errors.New("init failed")
 	}

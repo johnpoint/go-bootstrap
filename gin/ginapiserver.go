@@ -4,10 +4,9 @@ import (
 	"context"
 	"errors"
 	"github.com/gin-gonic/gin"
-	"github.com/johnpoint/go-bootstrap/core"
-	"github.com/johnpoint/go-bootstrap/log"
-	"github.com/johnpoint/go-bootstrap/utils"
-	"go.uber.org/zap"
+	"github.com/johnpoint/go-bootstrap/v2/core"
+	"github.com/johnpoint/go-bootstrap/v2/utils"
+	"log/slog"
 	"net/http"
 	"time"
 )
@@ -28,6 +27,7 @@ type ApiServer struct {
 	endpoints   map[string]Ep
 	listen      string
 	middlewares []gin.HandlerFunc
+	logger      *slog.Logger
 }
 
 var _ core.Component = (*ApiServer)(nil)
@@ -43,7 +43,15 @@ func (d *ApiServer) AddEndpoint(ep Ep) error {
 	return nil
 }
 
+func (d *ApiServer) WithLogger(logger *slog.Logger) *ApiServer {
+	d.logger = logger
+	return d
+}
+
 func (d *ApiServer) Init(ctx context.Context) error {
+	if d.logger == nil {
+		d.logger = core.NewDefaultLogger()
+	}
 	gin.SetMode(gin.ReleaseMode)
 	routerGin := gin.New()
 	if len(d.middlewares) != 0 {
@@ -58,7 +66,7 @@ func (d *ApiServer) Init(ctx context.Context) error {
 	})
 
 	for _, v := range d.endpoints {
-		log.Debug("ApiServer.Init.RegisterEndpoint", zap.Strings("info", []string{v.Method(), v.Path()}))
+		d.logger.Debug("ApiServer.Init.RegisterEndpoint", slog.String("info", v.Method()+" | "+v.Path()))
 		err := RegisterEndpoint(routerGin, v)
 		if err != nil {
 			panic(err)
@@ -66,7 +74,7 @@ func (d *ApiServer) Init(ctx context.Context) error {
 	}
 
 	go func() {
-		log.Info("ApiServer.Init.Run", zap.String("info", "HTTP Listen at "+d.listen))
+		d.logger.Info("ApiServer.Init.Run", slog.String("info", "HTTP Listen at "+d.listen))
 		err := routerGin.Run(d.listen)
 		if err != nil {
 			panic(err)

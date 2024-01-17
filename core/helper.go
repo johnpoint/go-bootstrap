@@ -2,11 +2,10 @@ package core
 
 import (
 	"context"
+	"log/slog"
 	"math/rand"
 	"reflect"
 	"time"
-
-	"go.uber.org/zap"
 )
 
 var globalComponent = make([]Component, 0)
@@ -24,11 +23,11 @@ func NewBoot(components ...Component) *Helper {
 
 type Helper struct {
 	ctx        context.Context
-	logger     Logger
+	logger     *slog.Logger
 	components []Component
 }
 
-func (i *Helper) WithLogger(logger Logger) *Helper {
+func (i *Helper) WithLogger(logger *slog.Logger) *Helper {
 	i.logger = logger
 	return i
 }
@@ -40,7 +39,7 @@ func (i *Helper) WithContext(ctx context.Context) *Helper {
 
 func (i *Helper) loadGlobalComponent() error {
 	for j := range globalComponent {
-		i.logger.Debug("Bootstrap", zap.String("step", reflect.TypeOf(globalComponent[j]).String()))
+		i.logger.Debug("Bootstrap", slog.String("step", reflect.TypeOf(globalComponent[j]).String()))
 		err := globalComponent[j].Init(i.ctx)
 		if err != nil {
 			return err
@@ -51,7 +50,7 @@ func (i *Helper) loadGlobalComponent() error {
 
 func (i *Helper) loadComponent() error {
 	for j := range i.components {
-		i.logger.Debug("Bootstrap", zap.String("step", reflect.TypeOf(i.components[j]).String()))
+		i.logger.Debug("Bootstrap", slog.String("step", reflect.TypeOf(i.components[j]).String()))
 		err := i.components[j].Init(i.ctx)
 		if err != nil {
 			return err
@@ -67,13 +66,13 @@ func (i *Helper) InitWithoutGlobalComponent() error {
 	if i.ctx == nil {
 		i.ctx = context.TODO()
 	}
-	i.logger.Debug("Bootstrap", zap.String("step", "start"))
+	i.logger.Debug("Bootstrap", slog.String("step", "start"))
 	rand.Seed(time.Now().UnixNano())
 	err := i.loadComponent()
 	if err != nil {
 		return err
 	}
-	i.logger.Debug("Bootstrap", zap.String("step", "finish"))
+	i.logger.Debug("Bootstrap", slog.String("step", "finish"))
 	return nil
 }
 
@@ -81,7 +80,7 @@ func (i *Helper) Init() error {
 	if i.logger == nil {
 		i.logger = NewDefaultLogger()
 	}
-	i.logger.Debug("Bootstrap", zap.String("step", "start"))
+	i.logger.Debug("Bootstrap", slog.String("step", "start"))
 	rand.Seed(time.Now().UnixNano())
 	err := i.loadGlobalComponent()
 	if err != nil {
@@ -91,7 +90,7 @@ func (i *Helper) Init() error {
 	if err != nil {
 		return err
 	}
-	i.logger.Debug("Bootstrap", zap.String("step", "finish"))
+	i.logger.Debug("Bootstrap", slog.String("step", "finish"))
 	return nil
 }
 
