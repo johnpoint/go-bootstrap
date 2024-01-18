@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/johnpoint/go-bootstrap/v2/core"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -17,7 +16,6 @@ import (
 
 type consumer struct {
 	ctx     context.Context
-	logger  *slog.Logger
 	alarm   Alarm
 	channel *channel
 	close   bool
@@ -27,9 +25,6 @@ type consumer struct {
 func (c *consumer) Validate() error {
 	if c.channel == nil {
 		return errors.New("channel is nil")
-	}
-	if c.logger == nil {
-		c.logger = core.NewDefaultLogger()
 	}
 	if c.channel.config == nil {
 		return errors.New("channel config is nil")
@@ -83,7 +78,7 @@ func (c *consumer) GetConn() error {
 		if err != nil {
 			if reconnectCount >= maxReconnectCount {
 				if !alarmFlag {
-					c.logger.Error("RabbitMQ.Consumer", slog.String("info", err.Error()))
+					slog.Error("RabbitMQ.Consumer", slog.String("info", err.Error()))
 					if c.alarm != nil {
 						_ = c.alarm.SetMsg(map[string]string{
 							"Title":   "RabbitMQ 连接失败超出阈值",
@@ -157,7 +152,7 @@ RUNLOOP:
 	c.channel.Chan[channelIndex].NotifyClose(cc)
 	delivery, err := c.GetDelivery(channelIndex)
 	if err != nil {
-		c.logger.Error("consumer.doHandlerLoop", slog.String("info", fmt.Sprintf("can't get delivery: %+v", err)))
+		slog.Error("consumer.doHandlerLoop", slog.String("info", fmt.Sprintf("can't get delivery: %+v", err)))
 		time.Sleep(3 * time.Second)
 		goto RUNLOOP
 	}
@@ -178,17 +173,17 @@ RUNLOOP:
 				case Ack:
 					err := msg.Ack(false)
 					if err != nil {
-						c.logger.Error("consumer.doHandlerLoop", slog.String("info", "can't ack message: "+err.Error()))
+						slog.Error("consumer.doHandlerLoop", slog.String("info", "can't ack message: "+err.Error()))
 					}
 				case NackDiscard:
 					err := msg.Nack(false, false)
 					if err != nil {
-						c.logger.Error("consumer.doHandlerLoop", slog.String("info", "can't nack message: "+err.Error()))
+						slog.Error("consumer.doHandlerLoop", slog.String("info", "can't nack message: "+err.Error()))
 					}
 				case NackRequeue:
 					err := msg.Nack(false, true)
 					if err != nil {
-						c.logger.Error("consumer.doHandlerLoop", slog.String("info", "can't nack message: "+err.Error()))
+						slog.Error("consumer.doHandlerLoop", slog.String("info", "can't nack message: "+err.Error()))
 					}
 				}
 				c.wait.Done()

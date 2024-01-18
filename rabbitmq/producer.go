@@ -3,7 +3,6 @@ package rabbitmq
 import (
 	"context"
 	"errors"
-	"github.com/johnpoint/go-bootstrap/v2/core"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log/slog"
 )
@@ -19,7 +18,6 @@ type producer struct {
 	sendBodyLength int
 	sendBody       chan []byte
 	alarm          Alarm
-	logger         *slog.Logger
 }
 
 func (p *producer) Validate() error {
@@ -28,9 +26,6 @@ func (p *producer) Validate() error {
 	}
 	if p.contentType == "" {
 		p.contentType = "text/plain"
-	}
-	if p.logger == nil {
-		p.logger = core.NewDefaultLogger()
 	}
 	if p.channel.config.ChannelNum == 0 {
 		p.channel.config.ChannelNum = 1
@@ -80,7 +75,7 @@ func (p *producer) Send(body []byte, channel *channel) {
 		}
 		if err != nil {
 			if retryCount >= maxReconnectCount {
-				p.logger.Error("RabbitMQ.Producer", slog.String("info", err.Error()))
+				slog.Error("RabbitMQ.Producer", slog.String("info", err.Error()))
 				if p.alarm != nil {
 					_ = p.alarm.SetMsg(map[string]string{
 						"Title":   "RabbitMQ-Producer 连接失败超出阈值",

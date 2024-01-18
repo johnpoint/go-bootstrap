@@ -27,11 +27,6 @@ type ApiServer struct {
 	endpoints   map[string]Ep
 	listen      string
 	middlewares []gin.HandlerFunc
-	logger      *slog.Logger
-}
-
-func (d *ApiServer) Logger(logger *slog.Logger) {
-	d.logger = logger
 }
 
 var _ core.Component = (*ApiServer)(nil)
@@ -48,9 +43,6 @@ func (d *ApiServer) AddEndpoint(ep Ep) error {
 }
 
 func (d *ApiServer) Init(ctx context.Context) error {
-	if d.logger == nil {
-		d.logger = core.NewDefaultLogger()
-	}
 	gin.SetMode(gin.ReleaseMode)
 	routerGin := gin.New()
 	if len(d.middlewares) != 0 {
@@ -65,7 +57,7 @@ func (d *ApiServer) Init(ctx context.Context) error {
 	})
 
 	for _, v := range d.endpoints {
-		d.logger.Debug("ApiServer.Init.RegisterEndpoint", slog.String("info", v.Method()+" | "+v.Path()))
+		slog.Debug("ApiServer.Init.RegisterEndpoint", slog.String("info", v.Method()+" | "+v.Path()))
 		err := RegisterEndpoint(routerGin, v)
 		if err != nil {
 			panic(err)
@@ -73,7 +65,7 @@ func (d *ApiServer) Init(ctx context.Context) error {
 	}
 
 	go func() {
-		d.logger.Info("ApiServer.Init.Run", slog.String("info", "HTTP Listen at "+d.listen))
+		slog.Info("ApiServer.Init.Run", slog.String("info", "HTTP Listen at "+d.listen))
 		err := routerGin.Run(d.listen)
 		if err != nil {
 			panic(err)

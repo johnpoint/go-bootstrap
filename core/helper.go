@@ -18,7 +18,6 @@ const (
 type Helper struct {
 	ctx           context.Context
 	defaultLogger bool
-	logger        *slog.Logger
 	loggerType    LoggerType
 	level         slog.Level
 	logWriter     io.Writer
@@ -34,15 +33,13 @@ func AddGlobalComponent(components ...Component) {
 
 func NewBoot(options ...BootOption) *Helper {
 	return &Helper{
-		logger:  NewDefaultLogger(),
 		options: options,
 	}
 }
 
 func (i *Helper) loadGlobalComponent() error {
 	for j := range globalComponent {
-		i.logger.Debug("Boot", slog.String("step", reflect.TypeOf(globalComponent[j]).String()))
-		globalComponent[j].Logger(i.Logger())
+		slog.Debug("Boot", slog.String("step", reflect.TypeOf(globalComponent[j]).String()))
 		err := globalComponent[j].Init(i.ctx)
 		if err != nil {
 			return err
@@ -53,8 +50,7 @@ func (i *Helper) loadGlobalComponent() error {
 
 func (i *Helper) loadComponent() error {
 	for j := range i.components {
-		i.logger.Debug("Boot", slog.String("step", reflect.TypeOf(i.components[j]).String()))
-		i.components[j].Logger(i.Logger())
+		slog.Debug("Boot", slog.String("step", reflect.TypeOf(i.components[j]).String()))
 		err := i.components[j].Init(i.ctx)
 		if err != nil {
 			return err
@@ -64,30 +60,33 @@ func (i *Helper) loadComponent() error {
 }
 
 func (i *Helper) init() {
-	i.logger.Debug("Boot", slog.String("step", "start"))
-	i.logger.Debug("Boot", slog.String("step", "load options"))
+	logger := NewDefaultLogger()
+	slog.SetDefault(logger)
+	slog.Debug("Boot", slog.String("step", "start"))
+	slog.Debug("Boot", slog.String("step", "load options"))
 	for j := range i.options {
 		i.options[j](i)
 	}
 	if i.logWriter == nil {
 		i.logWriter = os.Stderr
 	}
-	i.logger.Debug("Boot", slog.String("step", "init logger"))
+	slog.Debug("Boot", slog.String("step", "init logger"))
 
 	switch i.loggerType {
 	case LoggerTypeText:
-		i.logger = slog.New(slog.NewTextHandler(i.logWriter, &slog.HandlerOptions{
+		logger = slog.New(slog.NewTextHandler(i.logWriter, &slog.HandlerOptions{
 			Level: i.level,
 		}))
 	case LoggerTypeJSON:
-		i.logger = slog.New(slog.NewJSONHandler(i.logWriter, &slog.HandlerOptions{
+		logger = slog.New(slog.NewJSONHandler(i.logWriter, &slog.HandlerOptions{
 			Level: i.level,
 		}))
 	default:
-		i.logger = slog.New(slog.NewTextHandler(i.logWriter, &slog.HandlerOptions{
+		logger = slog.New(slog.NewTextHandler(i.logWriter, &slog.HandlerOptions{
 			Level: i.level,
 		}))
 	}
+	slog.SetDefault(logger)
 
 	if i.ctx == nil {
 		i.ctx = context.TODO()
@@ -101,7 +100,7 @@ func (i *Helper) InitWithoutGlobalComponent() error {
 	if err != nil {
 		return err
 	}
-	i.logger.Debug("Boot", slog.String("step", "finish"))
+	slog.Debug("Boot", slog.String("step", "finish"))
 	return nil
 }
 
@@ -115,10 +114,6 @@ func (i *Helper) Init() error {
 	if err != nil {
 		return err
 	}
-	i.logger.Debug("Boot", slog.String("step", "finish"))
+	slog.Debug("Boot", slog.String("step", "finish"))
 	return nil
-}
-
-func (i *Helper) Logger() *slog.Logger {
-	return i.logger
 }

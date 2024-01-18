@@ -32,12 +32,6 @@ func Level(level slog.Level) BootOption {
 	}
 }
 
-func WithLogger(logger *slog.Logger) BootOption {
-	return func(helper *Helper) {
-		helper.logger = logger
-	}
-}
-
 func WithContext(ctx context.Context) BootOption {
 	return func(helper *Helper) {
 		helper.ctx = ctx
