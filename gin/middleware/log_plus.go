@@ -38,7 +38,6 @@ func (w *CustomResponseWriter) WriteString(s string) (int, error) {
 
 func LogPlusMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-
 		var r reqLog
 		r.ReqID = utils.RandomString()
 		r.Header = c.Request.Header
@@ -55,6 +54,7 @@ func LogPlusMiddleware() gin.HandlerFunc {
 
 		r.Resp = customWriter.body.String()
 		r.Out = time.Now()
-		slog.Info("LogPlusMiddleware", slog.Any("info", r))
+		slog.Debug("LPM", slog.Any("info", r))
+		slog.Info("LPM", slog.String("catch", r.Method+" "+r.URL))
 	}
 }
