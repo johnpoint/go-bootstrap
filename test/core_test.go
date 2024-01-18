@@ -21,6 +21,7 @@ func TestRunBoot(t *testing.T) {
 		),
 		core.Level(slog.LevelDebug),
 		core.LogOutput(os.Stderr),
+		core.SetLoggerType(core.LoggerTypeText),
 		core.WithContext(context.TODO()),
 	).Init()
 	if err != nil {

@@ -14,6 +14,12 @@ func LogOutput(writer io.Writer) BootOption {
 	}
 }
 
+func SetLoggerType(loggerType LoggerType) BootOption {
+	return func(helper *Helper) {
+		helper.loggerType = loggerType
+	}
+}
+
 func WithComponents(components ...Component) BootOption {
 	return func(helper *Helper) {
 		helper.components = append(helper.components, components...)
