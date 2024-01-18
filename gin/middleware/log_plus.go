@@ -41,6 +41,7 @@ func LogPlusMiddleware() gin.HandlerFunc {
 		var r reqLog
 		r.ReqID = utils.RandomString()
 		r.Header = c.Request.Header
+		r.Method = c.Request.Method
 		rawReqData, _ := io.ReadAll(c.Request.Body)
 		c.Request.Body.Close()
 		c.Request.Body = io.NopCloser(bytes.NewBuffer(rawReqData))
