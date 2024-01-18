@@ -12,23 +12,18 @@ import (
 )
 
 func TestRunBoot(t *testing.T) {
-	err := core.NewBoot(&GinServer{}).WithLogger(
-		slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
-			Level: slog.LevelDebug,
-			//AddSource: true,
-		})),
+	err := core.NewBoot(
+		core.WithComponents(
+			ginBoot.NewApiServer("0.0.0.0:8888",
+				gin.Recovery(),
+				ginBootMiddlware.LogPlusMiddleware(),
+			),
+		),
+		core.Level(slog.LevelDebug),
+		core.LogOutput(os.Stderr),
+		core.WithContext(context.TODO()),
 	).Init()
 	if err != nil {
 		return
 	}
-}
-
-type GinServer struct {
-}
-
-func (r *GinServer) Init(c context.Context) error {
-	return ginBoot.NewApiServer("0.0.0.0:8888",
-		gin.Recovery(),
-		ginBootMiddlware.LogPlusMiddleware(),
-	).Init(c)
 }

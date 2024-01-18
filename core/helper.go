@@ -4,10 +4,8 @@ import (
 	"context"
 	"io"
 	"log/slog"
-	"math/rand"
 	"os"
 	"reflect"
-	"time"
 )
 
 type Helper struct {
@@ -16,6 +14,7 @@ type Helper struct {
 	level      slog.Level
 	logWriter  io.Writer
 	components []Component
+	options    []BootOption
 }
 
 var globalComponent = make([]Component, 0)
@@ -24,34 +23,11 @@ func AddGlobalComponent(components ...Component) {
 	globalComponent = append(globalComponent, components...)
 }
 
-type BootOption func(*Helper)
-
-func LogOutput(writer io.Writer) BootOption {
-	return func(helper *Helper) {
-		helper.logWriter = writer
-	}
-}
-
-func Level(level slog.Level) BootOption {
-	return func(helper *Helper) {
-		helper.level = level
-	}
-}
-
-func NewBoot(components ...Component) *Helper {
+func NewBoot(options ...BootOption) *Helper {
 	return &Helper{
-		components: components,
+		logger:  NewDefaultLogger(),
+		options: options,
 	}
-}
-
-func (i *Helper) WithLogger(logger *slog.Logger) *Helper {
-	i.logger = logger
-	return i
-}
-
-func (i *Helper) WithContext(ctx context.Context) *Helper {
-	i.ctx = ctx
-	return i
 }
 
 func (i *Helper) loadGlobalComponent() error {
@@ -78,14 +54,29 @@ func (i *Helper) loadComponent() error {
 	return nil
 }
 
-func (i *Helper) InitWithoutGlobalComponent() error {
+func (i *Helper) init() {
+	i.logger.Debug("Boot", slog.String("step", "start"))
+	i.logger.Debug("Boot", slog.String("step", "load options"))
+	for j := range i.options {
+		i.options[j](i)
+	}
+	if i.logWriter == nil {
+		i.logWriter = os.Stderr
+	}
+	i.logger.Debug("Boot", slog.String("step", "init logger"))
 	if i.logger == nil {
-		i.logger = NewDefaultLogger()
+		i.logger = slog.New(slog.NewTextHandler(i.logWriter, &slog.HandlerOptions{
+			Level: i.level,
+		}))
 	}
 	if i.ctx == nil {
 		i.ctx = context.TODO()
 	}
-	i.logger.Debug("Boot", slog.String("step", "start"))
+	return
+}
+
+func (i *Helper) InitWithoutGlobalComponent() error {
+	i.init()
 	err := i.loadComponent()
 	if err != nil {
 		return err
@@ -95,16 +86,7 @@ func (i *Helper) InitWithoutGlobalComponent() error {
 }
 
 func (i *Helper) Init() error {
-	if i.logWriter == nil {
-		i.logWriter = os.Stderr
-	}
-	if i.logger == nil {
-		i.logger = slog.New(slog.NewTextHandler(i.logWriter, &slog.HandlerOptions{
-			Level: i.level,
-		}))
-	}
-	i.logger.Debug("Boot", slog.String("step", "start"))
-	rand.Seed(time.Now().UnixNano())
+	i.init()
 	err := i.loadGlobalComponent()
 	if err != nil {
 		return err
@@ -119,11 +101,4 @@ func (i *Helper) Init() error {
 
 func (i *Helper) Logger() *slog.Logger {
 	return i.logger
-}
-
-func (i *Helper) AddComponent(components ...Component) *Helper {
-	for j := range components {
-		i.components = append(i.components, components[j])
-	}
-	return i
 }

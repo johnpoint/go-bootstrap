@@ -32,7 +32,6 @@ type ApiServer struct {
 
 func (d *ApiServer) Logger(logger *slog.Logger) {
 	d.logger = logger
-	return
 }
 
 var _ core.Component = (*ApiServer)(nil)
