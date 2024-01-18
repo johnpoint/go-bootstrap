@@ -30,6 +30,11 @@ type ApiServer struct {
 	logger      *slog.Logger
 }
 
+func (d *ApiServer) Logger(logger *slog.Logger) {
+	d.logger = logger
+	return
+}
+
 var _ core.Component = (*ApiServer)(nil)
 
 func (d *ApiServer) AddEndpoint(ep Ep) error {
@@ -41,11 +46,6 @@ func (d *ApiServer) AddEndpoint(ep Ep) error {
 	}
 	d.endpoints[utils.Md5(ep.Path()+ep.Method())] = ep
 	return nil
-}
-
-func (d *ApiServer) WithLogger(logger *slog.Logger) *ApiServer {
-	d.logger = logger
-	return d
 }
 
 func (d *ApiServer) Init(ctx context.Context) error {

@@ -8,10 +8,17 @@ import (
 
 type Component interface {
 	Init(ctx context.Context) error
+	Logger(logger *slog.Logger)
 }
 
 type EmptyComponent struct {
-	error bool
+	error  bool
+	logger *slog.Logger
+}
+
+func (d *EmptyComponent) Logger(logger *slog.Logger) {
+	d.logger = logger
+	return
 }
 
 func (d *EmptyComponent) Init(ctx context.Context) error {
