@@ -1,0 +1,93 @@
+name: Copilot Code Review
+
+on:
+  pull_request:
+    types: [labeled, opened, synchronize]
+
+  workflow_dispatch:
+    inputs:
+      model:
+        description: 'AI model to use for code review'
+        required: false
+        default: 'gpt-4o-mini'
+        type: choice
+        options:
+          - gpt-4o-mini
+          - gpt-4o
+          - o3-mini
+
+permissions:
+  pull-requests: write
+  contents: read
+  models: read
+
+env:
+  REVIEW_MODEL: ${{ inputs.model || 'gpt-4o-mini' }}
+  MAX_DIFF_BYTES: '30000'
+  MAX_RETRIES: '3'
+  DIFF_PATH: '/tmp/pr.diff'
+  REVIEW_PATH: '/tmp/review.txt'
+  MODEL_PATH: '/tmp/model.txt'
+
+jobs:
+  copilot-review:
+    runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.labels.*.name, 'copilot-review') || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get PR diff
+        id: diff
+        run: |
+          git fetch origin ${{ github.base_ref || 'main' }}
+          git diff origin/${{ github.base_ref || 'main' }}...HEAD > "$DIFF_PATH"
+
+          DIFF_SIZE=$(wc -c < "$DIFF_PATH")
+          echo "Diff size: ${DIFF_SIZE} bytes (limit: ${MAX_DIFF_BYTES} bytes)"
+          echo "diff_size=${DIFF_SIZE}" >> $GITHUB_OUTPUT
+
+          if [ "$DIFF_SIZE" -gt "$MAX_DIFF_BYTES" ]; then
+            echo "truncated=true" >> $GITHUB_OUTPUT
+            head -c "$MAX_DIFF_BYTES" "$DIFF_PATH" > /tmp/pr_truncated.diff
+            mv /tmp/pr_truncated.diff "$DIFF_PATH"
+            echo "Warning: diff truncated from ${DIFF_SIZE} to ${MAX_DIFF_BYTES} bytes"
+          else
+            echo "truncated=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate AI code review
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TRUNCATED: ${{ steps.diff.outputs.truncated }}
+        run: node .github/scripts/review.js
+
+      - name: Post review comment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            let review = '_Code review could not be generated. Please check workflow logs._';
+            let model = process.env.REVIEW_MODEL || 'gpt-4o-mini';
+
+            try {
+              review = fs.readFileSync(process.env.REVIEW_PATH, 'utf8');
+              model = fs.readFileSync(process.env.MODEL_PATH, 'utf8').trim();
+            } catch (e) {
+              core.warning('Could not read review output: ' + e.message);
+            }
+
+            const body =
+              '## 🤖 AI Code Review\n\n' +
+              review +
+              '\n\n---\n*Powered by [GitHub Models](https://github.com/marketplace/models) · `' + model + '`*';
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body,
+            });
