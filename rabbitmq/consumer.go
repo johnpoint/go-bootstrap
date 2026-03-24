@@ -73,7 +73,6 @@ func (c *consumer) GetConn() error {
 	var maxReconnectCount = 3
 	var alarmFlag bool
 	for {
-		time.Sleep(time.Duration(reconnectCount*reconnectCount) * time.Second)
 		err := c.channel.Init()
 		if err != nil {
 			if reconnectCount >= maxReconnectCount {
@@ -90,8 +89,10 @@ func (c *consumer) GetConn() error {
 					alarmFlag = true
 				}
 			}
-			// 指数退让重试
+			// 指数退让重试：第1次等1秒，第2次等4秒，第3次等9秒
 			reconnectCount++
+			backoffSeconds := time.Duration(reconnectCount*reconnectCount) * time.Second
+			time.Sleep(backoffSeconds)
 			continue
 		}
 		return nil
