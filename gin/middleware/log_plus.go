@@ -21,21 +21,26 @@ type reqLog struct {
 	Method string      `json:"method"`
 }
 
+// CustomResponseWriter is a wrapper around gin.ResponseWriter that captures response body data.
 type CustomResponseWriter struct {
 	gin.ResponseWriter
 	body *bytes.Buffer
 }
 
+// Write writes the given byte slice to both the buffer and the underlying response writer.
 func (w *CustomResponseWriter) Write(b []byte) (int, error) {
 	w.body.Write(b)
 	return w.ResponseWriter.Write(b)
 }
 
+// WriteString writes the given string to both the buffer and the underlying response writer.
 func (w *CustomResponseWriter) WriteString(s string) (int, error) {
 	w.body.WriteString(s)
 	return w.ResponseWriter.WriteString(s)
 }
 
+// LogPlusMiddleware returns a Gin middleware that logs detailed request and response information.
+// It captures request headers, body, URL, method, and response data with a unique request ID.
 func LogPlusMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var r reqLog
