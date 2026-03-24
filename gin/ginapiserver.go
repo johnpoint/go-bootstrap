@@ -53,6 +53,8 @@ func (d *ApiServer) AddEndpoint(ep Ep) error {
 func (d *ApiServer) Init(ctx context.Context) error {
 	gin.SetMode(gin.ReleaseMode)
 	routerGin := gin.New()
+	// Always add Recovery middleware to catch handler panics and prevent server crash
+	routerGin.Use(gin.Recovery())
 	if len(d.middlewares) != 0 {
 		routerGin.Use(d.middlewares...)
 	}
