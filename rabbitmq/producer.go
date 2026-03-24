@@ -34,6 +34,7 @@ func (p *producer) Validate() error {
 		return errors.New("channel is nil,please init channel")
 	}
 	if p.sendBodyLength == 0 {
+		// 4096 is the default message queue buffer size (number of messages buffered in memory)
 		p.sendBodyLength = 4096
 	}
 	p.sendBody = make(chan []byte, p.sendBodyLength)
@@ -53,6 +54,7 @@ func (p *producer) Run() {
 
 func (p *producer) Send(body []byte, channel *channel) {
 	retryCount := 0
+	// maxReconnectCount limits reconnection attempts before triggering an alarm notification
 	maxReconnectCount := 3
 	for {
 		err := channel.Chan[0].PublishWithContext(
@@ -77,12 +79,16 @@ func (p *producer) Send(body []byte, channel *channel) {
 			if retryCount >= maxReconnectCount {
 				slog.Error("RabbitMQ.Producer", slog.String("info", err.Error()))
 				if p.alarm != nil {
-					_ = p.alarm.SetMsg(map[string]string{
+					if err := p.alarm.SetMsg(map[string]string{
 						"Title":   "RabbitMQ-Producer 连接失败超出阈值",
 						"Address": p.channel.config.Address,
 						"Queue":   p.channel.config.QueueName,
-					})
-					_ = p.alarm.Do()
+					}); err != nil {
+						slog.Error("RabbitMQ.Producer alarm.SetMsg", slog.String("error", err.Error()))
+					}
+					if err := p.alarm.Do(); err != nil {
+						slog.Error("RabbitMQ.Producer alarm.Do", slog.String("error", err.Error()))
+					}
 				}
 				return
 			}

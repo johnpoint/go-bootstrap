@@ -3,6 +3,7 @@ package gin
 import (
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 )
 
@@ -24,6 +25,7 @@ func (j JSONEncoder) Mime() string {
 
 func (d JSONEncoder) HttpResponseError(w http.ResponseWriter, code int, err error) {
 	if code < 200 || code > 599 {
+		slog.Warn("HttpResponseError: invalid status code, defaulting to 500", slog.Int("code", code))
 		code = http.StatusInternalServerError
 	}
 
