@@ -28,7 +28,26 @@ func TestHelper_Init_Failed(t *testing.T) {
 	h.AddComponent(&EmptyComponent{error: true})
 	err := h.Init()
 	if err == nil {
-		t.Fatal("expected error but got nil")
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestHelper_Close(t *testing.T) {
+	var h Helper
+	h.AddComponent(&EmptyComponent{})
+	if err := h.Init(); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.Close(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestEmptyComponent_Close(t *testing.T) {
+	var c EmptyComponent
+	err := c.Close(context.Background())
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 

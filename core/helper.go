@@ -124,6 +124,19 @@ func (i *Helper) InitWithoutGlobalComponent() error {
 	return nil
 }
 
+// Close gracefully shuts down all components that implement ComponentCloser.
+// Components are closed in reverse initialization order.
+func (i *Helper) Close(ctx context.Context) error {
+	for j := len(i.components) - 1; j >= 0; j-- {
+		if closer, ok := i.components[j].(ComponentCloser); ok {
+			if err := closer.Close(ctx); err != nil {
+				slog.Error("Boot.Close", slog.String("step", "close component"), slog.String("error", err.Error()))
+			}
+		}
+	}
+	return nil
+}
+
 // Init initializes the boot helper with both global and instance components.
 // It first loads all global components, then loads the instance's components.
 func (i *Helper) Init() error {
