@@ -4,15 +4,32 @@ on:
   pull_request:
     types: [labeled, opened, synchronize]
 
+  workflow_dispatch:
+    inputs:
+      model:
+        description: 'AI model to use for code review'
+        required: false
+        default: 'gpt-4o-mini'
+        type: choice
+        options:
+          - gpt-4o-mini
+          - gpt-4o
+          - o3-mini
+
 permissions:
   pull-requests: write
   contents: read
   models: read
 
+env:
+  REVIEW_MODEL: ${{ inputs.model || 'gpt-4o-mini' }}
+  MAX_DIFF_BYTES: '30000'
+  MAX_RETRIES: '3'
+
 jobs:
   copilot-review:
     runs-on: ubuntu-latest
-    if: contains(github.event.pull_request.labels.*.name, 'copilot-review')
+    if: contains(github.event.pull_request.labels.*.name, 'copilot-review') || github.event_name == 'workflow_dispatch'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -20,39 +37,60 @@ jobs:
           fetch-depth: 0
 
       - name: Get PR diff
+        id: diff
         run: |
-          git fetch origin ${{ github.base_ref }}
-          git diff origin/${{ github.base_ref }}...HEAD | head -c 15000 > /tmp/pr.diff
-          echo "Diff size: $(wc -c < /tmp/pr.diff) bytes"
-          cat /tmp/pr.diff
+          git fetch origin ${{ github.base_ref || 'main' }}
+          git diff origin/${{ github.base_ref || 'main' }}...HEAD > /tmp/pr.diff
+
+          DIFF_SIZE=$(wc -c < /tmp/pr.diff)
+          echo "Diff size: ${DIFF_SIZE} bytes"
+          echo "diff_size=${DIFF_SIZE}" >> $GITHUB_OUTPUT
+
+          if [ "$DIFF_SIZE" -gt "$MAX_DIFF_BYTES" ]; then
+            echo "truncated=true" >> $GITHUB_OUTPUT
+            head -c "$MAX_DIFF_BYTES" /tmp/pr.diff > /tmp/pr_truncated.diff
+            mv /tmp/pr_truncated.diff /tmp/pr.diff
+            echo "Warning: diff truncated to ${MAX_DIFF_BYTES} bytes (original: ${DIFF_SIZE} bytes)"
+          else
+            echo "truncated=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Generate AI code review
+        id: review
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TRUNCATED: ${{ steps.diff.outputs.truncated }}
         run: |
           node - <<'NODESCRIPT'
           const fs = require('fs');
           const https = require('https');
 
           const diff = fs.readFileSync('/tmp/pr.diff', 'utf8');
+          const model = process.env.REVIEW_MODEL || 'gpt-4o-mini';
+          const maxRetries = parseInt(process.env.MAX_RETRIES || '3');
+          const isTruncated = process.env.TRUNCATED === 'true';
 
           if (!diff.trim()) {
             fs.writeFileSync('/tmp/review.txt', 'No code changes found to review.');
             process.exit(0);
           }
 
+          const truncatedNote = isTruncated
+            ? '\n\n> ⚠️ **Note**: This PR diff was large and has been truncated. The review covers only the first portion of the changes.'
+            : '';
+
           const systemPrompt =
             'You are a senior software engineer conducting a thorough code review. ' +
             'Analyze the provided PR diff and give actionable feedback. ' +
             'Structure your review with these sections:\n' +
             '## Summary\nBrief overview of the changes.\n\n' +
-            '## Issues\nList any bugs, security vulnerabilities, or logic errors.\n\n' +
+            '## Issues\nList any bugs, security vulnerabilities, or logic errors. If none, say "No issues found."\n\n' +
             '## Suggestions\nCode quality, performance, and maintainability improvements.\n\n' +
             '## Positives\nWell-written parts worth highlighting.\n\n' +
             'Be specific, cite line numbers when relevant, and use markdown.';
 
           const payload = JSON.stringify({
-            model: 'gpt-4o-mini',
+            model: model,
             messages: [
               { role: 'system', content: systemPrompt },
               { role: 'user', content: 'Please review the following PR diff:\n\n```diff\n' + diff + '\n```' }
@@ -61,47 +99,78 @@ jobs:
             temperature: 0.3
           });
 
-          const options = {
-            hostname: 'models.inference.ai.azure.com',
-            path: '/chat/completions',
-            method: 'POST',
-            headers: {
-              'Authorization': 'Bearer ' + process.env.GITHUB_TOKEN,
-              'Content-Type': 'application/json',
-              'Content-Length': Buffer.byteLength(payload)
-            }
-          };
+          function makeRequest(attempt) {
+            return new Promise((resolve, reject) => {
+              const options = {
+                hostname: 'models.inference.ai.azure.com',
+                path: '/chat/completions',
+                method: 'POST',
+                headers: {
+                  'Authorization': 'Bearer ' + process.env.GITHUB_TOKEN,
+                  'Content-Type': 'application/json',
+                  'Content-Length': Buffer.byteLength(payload)
+                }
+              };
 
-          const req = https.request(options, (res) => {
-            let data = '';
-            res.on('data', chunk => { data += chunk; });
-            res.on('end', () => {
+              const req = https.request(options, (res) => {
+                let data = '';
+                res.on('data', chunk => { data += chunk; });
+                res.on('end', () => {
+                  if (res.statusCode === 429) {
+                    reject(new Error('rate_limited'));
+                    return;
+                  }
+                  if (res.statusCode >= 500) {
+                    reject(new Error('server_error:' + res.statusCode));
+                    return;
+                  }
+                  if (res.statusCode !== 200) {
+                    reject(new Error('http_error:' + res.statusCode + ':' + data));
+                    return;
+                  }
+                  try {
+                    const response = JSON.parse(data);
+                    if (response.choices && response.choices[0]) {
+                      resolve(response.choices[0].message.content + truncatedNote);
+                    } else {
+                      reject(new Error('unexpected_response:' + data));
+                    }
+                  } catch (e) {
+                    reject(new Error('parse_error:' + data.substring(0, 500)));
+                  }
+                });
+              });
+
+              req.on('error', (e) => reject(e));
+              req.write(payload);
+              req.end();
+            });
+          }
+
+          async function reviewWithRetry() {
+            for (let attempt = 1; attempt <= maxRetries; attempt++) {
               try {
-                const response = JSON.parse(data);
-                if (response.choices && response.choices[0]) {
-                  fs.writeFileSync('/tmp/review.txt', response.choices[0].message.content);
-                  console.log('Review generated successfully');
+                console.log('Attempt ' + attempt + ' of ' + maxRetries + ' using model: ' + model);
+                const review = await makeRequest(attempt);
+                fs.writeFileSync('/tmp/review.txt', review);
+                fs.writeFileSync('/tmp/model.txt', model);
+                console.log('Review generated successfully');
+                return;
+              } catch (e) {
+                console.error('Attempt ' + attempt + ' failed: ' + e.message);
+                if (attempt < maxRetries) {
+                  const delay = Math.pow(2, attempt) * 1000;
+                  console.log('Retrying in ' + delay + 'ms...');
+                  await new Promise(r => setTimeout(r, delay));
                 } else {
-                  console.error('Unexpected API response:', data);
-                  fs.writeFileSync('/tmp/review.txt', 'API Error: ' + JSON.stringify(response));
+                  fs.writeFileSync('/tmp/review.txt', 'Code review failed after ' + maxRetries + ' attempts. Last error: ' + e.message);
                   process.exit(1);
                 }
-              } catch (e) {
-                console.error('Failed to parse response:', e.message);
-                fs.writeFileSync('/tmp/review.txt', 'Parse error: ' + data.substring(0, 500));
-                process.exit(1);
               }
-            });
-          });
+            }
+          }
 
-          req.on('error', (e) => {
-            console.error('Request error:', e.message);
-            fs.writeFileSync('/tmp/review.txt', 'Request failed: ' + e.message);
-            process.exit(1);
-          });
-
-          req.write(payload);
-          req.end();
+          reviewWithRetry();
           NODESCRIPT
 
       - name: Post review comment
@@ -111,9 +180,11 @@ jobs:
           script: |
             const fs = require('fs');
             let review = 'Code review could not be generated. Please check workflow logs.';
+            let model = 'gpt-4o-mini';
 
             try {
               review = fs.readFileSync('/tmp/review.txt', 'utf8');
+              model = fs.readFileSync('/tmp/model.txt', 'utf8').trim();
             } catch (e) {
               core.warning('Could not read review file: ' + e.message);
             }
@@ -121,7 +192,7 @@ jobs:
             const body =
               '## 🤖 AI Code Review\n\n' +
               review +
-              '\n\n---\n*Powered by [GitHub Models](https://github.com/marketplace/models) · gpt-4o-mini*';
+              '\n\n---\n*Powered by [GitHub Models](https://github.com/marketplace/models) · `' + model + '`*';
 
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
