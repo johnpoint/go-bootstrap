@@ -31,6 +31,7 @@ func (t TextEncoder) Encode(v any) error {
 	return nil
 }
 
+// NewTextEncoder creates a new TextEncoder with the provided io.Writer.
 func NewTextEncoder(w io.Writer) TextEncoder {
 	return TextEncoder{w: w}
 }

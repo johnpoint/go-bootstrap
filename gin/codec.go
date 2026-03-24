@@ -14,6 +14,8 @@ type Decoder interface {
 	Decode(v any) error
 }
 
+// Endpoint creates a generic HTTP endpoint handler that decodes requests, calls a service function, and encodes responses.
+// Request and Response are generic types bound by the Ep interface's encoder/decoder.
 func Endpoint[Request any, Response any](svc Ep, f func(ctx context.Context, req *Request) (*Response, error)) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		r := c.Request

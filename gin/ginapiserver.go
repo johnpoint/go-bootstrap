@@ -13,10 +13,12 @@ import (
 
 var apiServer = &ApiServer{}
 
+// Server returns the singleton ApiServer instance.
 func Server() *ApiServer {
 	return apiServer
 }
 
+// NewApiServer creates and returns a new ApiServer instance with the specified listen address and middlewares.
 func NewApiServer(listen string, middlewares ...gin.HandlerFunc) *ApiServer {
 	apiServer.listen = listen
 	apiServer.middlewares = middlewares
@@ -31,6 +33,8 @@ type ApiServer struct {
 
 var _ core.Component = (*ApiServer)(nil)
 
+// AddEndpoint adds an endpoint to the API server.
+// Returns an error if the endpoint is already registered (duplicate route).
 func (d *ApiServer) AddEndpoint(ep Ep) error {
 	if d.endpoints == nil {
 		d.endpoints = make(map[string]Ep)

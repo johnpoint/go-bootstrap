@@ -27,10 +27,13 @@ type Helper struct {
 
 var globalComponent = make([]Component, 0)
 
+// AddGlobalComponent adds components to the global component list.
+// These components will be initialized for all Boot instances.
 func AddGlobalComponent(components ...Component) {
 	globalComponent = append(globalComponent, components...)
 }
 
+// NewBoot creates a new Boot helper instance with the provided options.
 func NewBoot(options ...BootOption) *Helper {
 	return &Helper{
 		options: options,
@@ -94,6 +97,8 @@ func (i *Helper) init() {
 	return
 }
 
+// InitWithoutGlobalComponent initializes the boot helper without loading global components.
+// It only loads the components passed to this helper instance.
 func (i *Helper) InitWithoutGlobalComponent() error {
 	i.init()
 	err := i.loadComponent()
@@ -104,6 +109,8 @@ func (i *Helper) InitWithoutGlobalComponent() error {
 	return nil
 }
 
+// Init initializes the boot helper with both global and instance components.
+// It first loads all global components, then loads the instance's components.
 func (i *Helper) Init() error {
 	i.init()
 	err := i.loadGlobalComponent()

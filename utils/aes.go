@@ -28,7 +28,8 @@ func pkcs7UnPadding(data []byte) ([]byte, error) {
 	return data[:(length - unPadding)], nil
 }
 
-// AesEncrypt 加密
+// AesEncrypt encrypts data using AES in CBC mode with PKCS7 padding.
+// The key size determines the AES variant (16 for AES-128, 24 for AES-192, 32 for AES-256).
 func AesEncrypt(data []byte, key []byte) ([]byte, error) {
 	//创建加密实例
 	block, err := aes.NewCipher(key)
@@ -48,7 +49,7 @@ func AesEncrypt(data []byte, key []byte) ([]byte, error) {
 	return crypted, nil
 }
 
-// AesDecrypt 解密
+// AesDecrypt decrypts AES encrypted data in CBC mode and removes PKCS7 padding.
 func AesDecrypt(data []byte, key []byte) ([]byte, error) {
 	//创建实例
 	block, err := aes.NewCipher(key)
@@ -71,7 +72,7 @@ func AesDecrypt(data []byte, key []byte) ([]byte, error) {
 	return crypted, nil
 }
 
-// EncryptByAes Aes加密 后 base64 再加
+// EncryptByAes encrypts data using AES in CBC mode and encodes the result with base64.
 func EncryptByAes(data, key []byte) (string, error) {
 	res, err := AesEncrypt(data, key)
 	if err != nil {
@@ -80,7 +81,7 @@ func EncryptByAes(data, key []byte) (string, error) {
 	return base64.StdEncoding.EncodeToString(res), nil
 }
 
-// DecryptByAes Aes 解密
+// DecryptByAes decodes base64 encoded data and decrypts it using AES in CBC mode.
 func DecryptByAes(data, key string) ([]byte, error) {
 	dataByte, err := base64.StdEncoding.DecodeString(data)
 	if err != nil {

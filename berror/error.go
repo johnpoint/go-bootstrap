@@ -21,6 +21,8 @@ func (err *BErr) Error() string {
 	return fmt.Sprintf("Err - code: %d, message: %s, error: %s", err.Code, err.Message, err.ErrorInfo)
 }
 
+// GetErrCode extracts the error code from an error.
+// If the error is not a BErr type, it returns Unknown.Code.
 func GetErrCode(err error) int {
 	trueErr, ok := err.(*BErr)
 	if !ok {
@@ -29,6 +31,8 @@ func GetErrCode(err error) int {
 	return trueErr.Code
 }
 
+// GetErrMessage extracts the error message from an error.
+// If the error is not a BErr type, it returns Unknown.Message.
 func GetErrMessage(err error) string {
 	trueErr, ok := err.(*BErr)
 	if !ok {
@@ -37,6 +41,8 @@ func GetErrMessage(err error) string {
 	return trueErr.Message
 }
 
+// WarpErr wraps an error with additional error information.
+// It preserves the code and message from the original error while attaching the error info.
 func WarpErr(err *BErr, errInfo error) *BErr {
 	return &BErr{
 		Code:      err.Code,
@@ -45,6 +51,10 @@ func WarpErr(err *BErr, errInfo error) *BErr {
 	}
 }
 
+// DecodeErr decodes an error into its code and message components.
+// If the error is nil, it returns OK code and message.
+// If the error is not a BErr type, it returns Unknown code and message.
+// If the error has ErrorInfo, it appends the error details to the message.
 func DecodeErr(err error) (int, string) {
 	if err == nil {
 		return OK.Code, OK.Message

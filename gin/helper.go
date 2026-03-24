@@ -5,6 +5,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// RegisterEndpoint registers an endpoint with the Gin engine based on its HTTP method.
+// Supports GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS, and Any methods.
 func RegisterEndpoint(g *gin.Engine, ep Ep) error {
 	handles := ep.Middleware()
 	handles = append(handles, ep.HandlerFunc())
