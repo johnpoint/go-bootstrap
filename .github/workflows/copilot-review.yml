@@ -19,57 +19,57 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
 
-      - name: Get PR changes
+      - name: Get PR diff
         id: changes
         run: |
           git fetch origin ${{ github.base_ref }} --depth=1
           DIFF=$(git diff origin/${{ github.base_ref }} HEAD)
           echo "has_changes=true" >> $GITHUB_OUTPUT
-          # Save diff to file for review
-          echo "$DIFF" > /tmp/pr_changes.diff
 
-      - name: Request Copilot review
+      - name: Post code review analysis
         uses: actions/github-script@v7
+        if: steps.changes.outputs.has_changes == 'true'
         with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            // Get PR diff info
-            const { data: prData } = await github.rest.pulls.get({
+            const fs = require('fs');
+            
+            // Get PR files
+            const { data: files } = await github.rest.pulls.listFiles({
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: context.issue.number
             });
             
-            const files = await github.rest.pulls.listFiles({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.issue.number
-            });
+            // Build file list
+            let filesList = files
+              .map(f => `- \`${f.filename}\` (${f.additions} additions, ${f.deletions} deletions)`)
+              .join('\n');
             
-            // Get diff stats
-            let filesList = files.data.map(f => {
-              return `- ${f.filename} (${f.additions} additions, ${f.deletions} deletions)`;
-            }).join('\n');
+            // Calculate totals
+            const totalAdditions = files.reduce((s, f) => s + f.additions, 0);
+            const totalDeletions = files.reduce((s, f) => s + f.deletions, 0);
             
-            // Create review request comment
-            const reviewComment = `## 🤖 Copilot Code Review Triggered
+            // Create review comment
+            const reviewComment = `## 🤖 Copilot Code Review
+            
+This PR has been marked for code review with the \`copilot-review\` label.
 
-This PR has been marked for Copilot review with the \`copilot-review\` label.
+### PR Statistics
+- **Files changed:** ${files.length}
+- **Total additions:** ${totalAdditions}
+- **Total deletions:** ${totalDeletions}
+- **Net change:** ${totalAdditions - totalDeletions}
 
-**PR Summary:**
-- Files changed: ${files.data.length}
-- Total additions: ${files.data.reduce((s, f) => s + f.additions, 0)}
-- Total deletions: ${files.data.reduce((s, f) => s + f.deletions, 0)}
-
-**Changed Files:**
+### Changed Files
 ${filesList}
 
-**Review Status:** Awaiting detailed review analysis...
+### Next Steps
+To get a detailed AI-powered code review:
+1. Use GitHub Copilot in your IDE to review individual files
+2. Check the PR diff view for line-by-line suggestions
+3. Run \`copilot review\` locally on this branch for detailed analysis`;
 
-To perform a detailed code review with Copilot, you can:
-1. Run \`copilot review\` locally on the branch
-2. Use GitHub Copilot's built-in code review features
-3. Review individual files through the PR interface`;
-            
             // Post the comment
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
@@ -78,4 +78,4 @@ To perform a detailed code review with Copilot, you can:
               body: reviewComment
             });
             
-            console.log('Code review analysis posted to PR');
+            console.log('Code review analysis posted');
