@@ -204,9 +204,9 @@ RUNLOOP:
 
 func (c *consumer) gracefulShutdown() {
 	// 阻塞，直到接收到shutdown的信号
-	ch := make(chan os.Signal)
+	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGINT, syscall.SIGKILL)
-	_ = <-ch
+	<-ch
 	//关闭后，Run方法中处理消息的协程将会关闭，不再处理新消息。
 	c.close = true
 	c.wait.Wait()
