@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"reflect"
+	"sync"
 )
 
 type LoggerType string
@@ -25,11 +26,16 @@ type Helper struct {
 	options       []BootOption
 }
 
-var globalComponent = make([]Component, 0)
+var (
+	globalComponent   = make([]Component, 0)
+	globalComponentMu sync.RWMutex
+)
 
 // AddGlobalComponent adds components to the global component list.
 // These components will be initialized for all Boot instances.
 func AddGlobalComponent(components ...Component) {
+	globalComponentMu.Lock()
+	defer globalComponentMu.Unlock()
 	globalComponent = append(globalComponent, components...)
 }
 
@@ -46,9 +52,13 @@ func NewBoot(options ...BootOption) *Helper {
 }
 
 func (i *Helper) loadGlobalComponent() error {
-	for j := range globalComponent {
-		slog.Debug("Boot", slog.String("step", reflect.TypeOf(globalComponent[j]).String()))
-		err := globalComponent[j].Init(i.ctx)
+	globalComponentMu.RLock()
+	components := make([]Component, len(globalComponent))
+	copy(components, globalComponent)
+	globalComponentMu.RUnlock()
+	for j := range components {
+		slog.Debug("Boot", slog.String("step", reflect.TypeOf(components[j]).String()))
+		err := components[j].Init(i.ctx)
 		if err != nil {
 			return err
 		}
