@@ -13,12 +13,12 @@ jobs:
     runs-on: ubuntu-latest
     if: contains(github.event.pull_request.labels.*.name, 'copilot-review')
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Review Code
+      - name: Post code review analysis
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -29,37 +29,33 @@ jobs:
               pull_number: context.issue.number
             });
 
-            let filesList = '';
-            let totalAdditions = 0;
-            let totalDeletions = 0;
+            let filesOutput = '';
+            let additions = 0;
+            let deletions = 0;
 
             for (const file of files.data) {
-              totalAdditions += file.additions;
-              totalDeletions += file.deletions;
-              filesList += `- \`${file.filename}\` (+${file.additions}/-${file.deletions})\n`;
+              additions += file.additions;
+              deletions += file.deletions;
+              filesOutput = filesOutput + '- `' + file.filename + '` (+' + file.additions + '/-' + file.deletions + ')\n';
             }
 
-            const body = `## 🤖 Copilot Code Review
-
-This PR has been marked for code review with the \`copilot-review\` label.
-
-### Changes Summary
-- **Files changed:** ${files.data.length}
-- **Lines added:** ${totalAdditions}
-- **Lines deleted:** ${totalDeletions}
-
-### Modified Files
-${filesList}
-
-### Recommendations
-Review the changes using:
-- GitHub Copilot inline suggestions
-- The PR diff view for detailed changes
-- \`copilot review\` command locally`;
+            const comment = '## 🤖 Copilot Code Review\n\n' +
+              'This PR has been marked for code review with the `copilot-review` label.\n\n' +
+              '### Changes Summary\n' +
+              '- **Files changed:** ' + files.data.length + '\n' +
+              '- **Lines added:** ' + additions + '\n' +
+              '- **Lines deleted:** ' + deletions + '\n\n' +
+              '### Modified Files\n' +
+              filesOutput + '\n' +
+              '### Recommendations\n' +
+              'Review the changes using:\n' +
+              '- GitHub Copilot inline suggestions\n' +
+              '- The PR diff view for detailed changes\n' +
+              '- `copilot review` command locally';
 
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: body
+              body: comment
             });
