@@ -1,6 +1,8 @@
 package rabbitmq
 
 import (
+	"time"
+
 	"github.com/go-playground/validator/v10"
 )
 
@@ -21,6 +23,7 @@ type Config struct {
 	NoWait          bool                   `yaml:"no-wait"`
 	Args            map[string]interface{} `yaml:"args"`
 	ChannelNum      int                    `yaml:"channel-num"`
+	ReconnectDelay  time.Duration          `yaml:"reconnect-delay"`
 }
 
 func (c *Config) Validate() error {
