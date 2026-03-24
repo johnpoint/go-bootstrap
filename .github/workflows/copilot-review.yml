@@ -1,0 +1,68 @@
+name: Copilot Code Review
+
+on:
+  pull_request:
+    types: [labeled, opened, synchronize]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  copilot-review:
+    runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.labels.*.name, 'copilot-review')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get PR changes
+        id: pr_changes
+        run: |
+          # Get the list of changed files
+          git fetch origin pull/${{ github.event.pull_request.number }}/merge --depth=50
+          CHANGED_FILES=$(git diff --name-only origin/main...FETCH_HEAD 2>/dev/null || git diff --name-only origin/master...FETCH_HEAD)
+          echo "files=$CHANGED_FILES" >> $GITHUB_OUTPUT
+          
+          # Get the diff
+          DIFF=$(git diff origin/main...FETCH_HEAD 2>/dev/null || git diff origin/master...FETCH_HEAD)
+          echo "diff<<EOF" >> $GITHUB_OUTPUT
+          echo "$DIFF" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Install Copilot CLI
+        run: |
+          npm install -g @github/copilot-cli
+
+      - name: Run Copilot code review
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Create a review file with PR changes
+          cat > /tmp/pr_changes.txt << 'EOF'
+          ${{ steps.pr_changes.outputs.diff }}
+          EOF
+          
+          # Run copilot review
+          copilot review /tmp/pr_changes.txt > /tmp/review_output.txt 2>&1 || true
+          
+          # Read the review output
+          REVIEW=$(cat /tmp/review_output.txt)
+          echo "REVIEW<<EOF" >> $GITHUB_ENV
+          echo "$REVIEW" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Post review as comment
+        if: env.REVIEW != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const review = process.env.REVIEW;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🤖 Copilot Code Review\n\n${review}`
+            });
