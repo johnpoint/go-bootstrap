@@ -64,7 +64,7 @@ func (d *ApiServer) Init(ctx context.Context) error {
 		slog.Debug("ApiServer.Init.RegisterEndpoint", slog.String("info", v.Method()+" | "+v.Path()))
 		err := RegisterEndpoint(routerGin, v)
 		if err != nil {
-			panic(err)
+			return err
 		}
 	}
 

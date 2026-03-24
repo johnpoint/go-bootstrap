@@ -33,6 +33,11 @@ func AddGlobalComponent(components ...Component) {
 	globalComponent = append(globalComponent, components...)
 }
 
+// AddComponent adds a component to the helper's component list.
+func (i *Helper) AddComponent(components ...Component) {
+	i.components = append(i.components, components...)
+}
+
 // NewBoot creates a new Boot helper instance with the provided options.
 func NewBoot(options ...BootOption) *Helper {
 	return &Helper{
