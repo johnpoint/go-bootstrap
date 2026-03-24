@@ -17,52 +17,53 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
 
-      - name: Get PR changes
-        id: pr_changes
+      - name: Get PR diff
+        id: pr_diff
         run: |
-          # Get the list of changed files
-          git fetch origin pull/${{ github.event.pull_request.number }}/merge --depth=50
-          CHANGED_FILES=$(git diff --name-only origin/main...FETCH_HEAD 2>/dev/null || git diff --name-only origin/master...FETCH_HEAD)
-          echo "files=$CHANGED_FILES" >> $GITHUB_OUTPUT
-          
-          # Get the diff
-          DIFF=$(git diff origin/main...FETCH_HEAD 2>/dev/null || git diff origin/master...FETCH_HEAD)
-          echo "diff<<EOF" >> $GITHUB_OUTPUT
-          echo "$DIFF" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          git fetch origin ${{ github.base_ref }} --depth=1
+          git diff origin/${{ github.base_ref }} > /tmp/pr.diff
+          echo "Success: PR diff generated"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
 
       - name: Install Copilot CLI
-        run: |
-          npm install -g @github/copilot-cli
+        run: npm install -g @github/copilot-cli
 
-      - name: Run Copilot code review
+      - name: Run Copilot review
+        id: review
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Create a review file with PR changes
-          cat > /tmp/pr_changes.txt << 'EOF'
-          ${{ steps.pr_changes.outputs.diff }}
-          EOF
-          
-          # Run copilot review
-          copilot review /tmp/pr_changes.txt > /tmp/review_output.txt 2>&1 || true
-          
-          # Read the review output
-          REVIEW=$(cat /tmp/review_output.txt)
-          echo "REVIEW<<EOF" >> $GITHUB_ENV
-          echo "$REVIEW" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+          # Check if diff file exists and has content
+          if [ -s /tmp/pr.diff ]; then
+            echo "Running Copilot review on PR changes..."
+            # Run copilot review and capture output
+            copilot review /tmp/pr.diff > /tmp/review.txt 2>&1 || echo "Review completed with status: $?"
+            REVIEW_OUTPUT=$(cat /tmp/review.txt)
+            echo "review_output<<REVIEW_EOF" >> $GITHUB_OUTPUT
+            echo "$REVIEW_OUTPUT" >> $GITHUB_OUTPUT
+            echo "REVIEW_EOF" >> $GITHUB_OUTPUT
+          else
+            echo "No changes found in PR"
+            echo "review_output=No changes to review" >> $GITHUB_OUTPUT
+          fi
 
-      - name: Post review as comment
-        if: env.REVIEW != ''
+      - name: Post review comment
         uses: actions/github-script@v7
+        if: steps.review.outputs.review_output != ''
         with:
           script: |
-            const review = process.env.REVIEW;
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `## 🤖 Copilot Code Review\n\n${review}`
-            });
+            const review = `${{ steps.review.outputs.review_output }}`;
+            if (review && review.trim().length > 0) {
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `## 🤖 Copilot Code Review\n\n${review}`
+              });
+            }
