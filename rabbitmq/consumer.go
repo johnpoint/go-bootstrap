@@ -110,16 +110,24 @@ const (
 	NackRequeue
 )
 
-func (c *consumer) Run(handler func(context.Context, *amqp.Delivery) Action) {
-RECONNECT:
-	err := c.GetConn()
-	if err != nil {
-		time.Sleep(3 * time.Second)
-		goto RECONNECT
+func (c *consumer) reconnectDelay() time.Duration {
+	if c.channel.config.ReconnectDelay > 0 {
+		return c.channel.config.ReconnectDelay
 	}
+	return 3 * time.Second
+}
 
-	for i := range c.channel.Chan {
-		go c.doHandlerLoop(c.ctx, i, handler)
+func (c *consumer) Run(handler func(context.Context, *amqp.Delivery) Action) {
+	for {
+		err := c.GetConn()
+		if err != nil {
+			time.Sleep(c.reconnectDelay())
+			continue
+		}
+		for i := range c.channel.Chan {
+			go c.doHandlerLoop(c.ctx, i, handler)
+		}
+		return
 	}
 }
 
@@ -148,57 +156,64 @@ func (c *consumer) reCreateChannel(index int) error {
 }
 
 func (c *consumer) doHandlerLoop(ctx context.Context, channelIndex int, handler func(context.Context, *amqp.Delivery) Action) {
-RUNLOOP:
-	cc := make(chan *amqp.Error)
-	c.channel.Chan[channelIndex].NotifyClose(cc)
-	delivery, err := c.GetDelivery(channelIndex)
-	if err != nil {
-		slog.Error("consumer.doHandlerLoop", slog.String("info", fmt.Sprintf("can't get delivery: %+v", err)))
-		time.Sleep(3 * time.Second)
-		goto RUNLOOP
-	}
 	for {
-		select {
-		case msg, ok := <-delivery:
-			if !ok {
+		cc := make(chan *amqp.Error)
+		c.channel.Chan[channelIndex].NotifyClose(cc)
+		delivery, err := c.GetDelivery(channelIndex)
+		if err != nil {
+			slog.Error("consumer.doHandlerLoop", slog.String("info", fmt.Sprintf("can't get delivery: %+v", err)))
+			time.Sleep(c.reconnectDelay())
+			continue
+		}
+
+		shouldRestart := false
+	innerLoop:
+		for {
+			select {
+			case msg, ok := <-delivery:
+				if !ok {
+					if !c.close {
+						c.reCreateChannel(channelIndex)
+						shouldRestart = true
+						break innerLoop
+					}
+					return
+				}
 				if !c.close {
-					c.reCreateChannel(channelIndex)
-					goto RUNLOOP
+					c.wait.Add(1)
+					switch handler(ctx, &msg) {
+					case Ack:
+						err := msg.Ack(false)
+						if err != nil {
+							slog.Error("consumer.doHandlerLoop", slog.String("info", "can't ack message: "+err.Error()))
+						}
+					case NackDiscard:
+						err := msg.Nack(false, false)
+						if err != nil {
+							slog.Error("consumer.doHandlerLoop", slog.String("info", "can't nack message: "+err.Error()))
+						}
+					case NackRequeue:
+						err := msg.Nack(false, true)
+						if err != nil {
+							slog.Error("consumer.doHandlerLoop", slog.String("info", "can't nack message: "+err.Error()))
+						}
+					}
+					c.wait.Done()
 				} else {
 					return
 				}
-			}
-			if !c.close {
-				c.wait.Add(1)
-				switch handler(ctx, &msg) {
-				case Ack:
-					err := msg.Ack(false)
-					if err != nil {
-						slog.Error("consumer.doHandlerLoop", slog.String("info", "can't ack message: "+err.Error()))
-					}
-				case NackDiscard:
-					err := msg.Nack(false, false)
-					if err != nil {
-						slog.Error("consumer.doHandlerLoop", slog.String("info", "can't nack message: "+err.Error()))
-					}
-				case NackRequeue:
-					err := msg.Nack(false, true)
-					if err != nil {
-						slog.Error("consumer.doHandlerLoop", slog.String("info", "can't nack message: "+err.Error()))
-					}
-				}
-				c.wait.Done()
-			} else {
-				return
-			}
 
-		case <-cc:
-			if !c.close {
-				c.reCreateChannel(channelIndex)
-				goto RUNLOOP
-			} else {
+			case <-cc:
+				if !c.close {
+					c.reCreateChannel(channelIndex)
+					shouldRestart = true
+					break innerLoop
+				}
 				return
 			}
+		}
+		if !shouldRestart {
+			return
 		}
 	}
 }
