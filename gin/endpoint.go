@@ -26,6 +26,6 @@ func (b *BaseEndpoint) SetMiddleware(middlewares []gin.HandlerFunc) {
 	b.MiddlewareFunc = middlewares
 }
 
-func (b BaseEndpoint) Middleware() []gin.HandlerFunc {
+func (b *BaseEndpoint) Middleware() []gin.HandlerFunc {
 	return b.MiddlewareFunc
 }
