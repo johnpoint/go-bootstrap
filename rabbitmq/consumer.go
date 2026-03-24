@@ -30,7 +30,7 @@ func (c *consumer) Validate() error {
 		return errors.New("channel config is nil")
 	}
 	if c.channel.config.ChannelNum == 0 {
-		c.channel.config.ChannelNum = 0
+		c.channel.config.ChannelNum = 1
 	}
 	if c.channel.config.QueueName == "" {
 		return errors.New("queue is nil")
@@ -70,6 +70,7 @@ func (c *consumer) GetConn() error {
 		}
 	}
 	var reconnectCount = 0
+	// maxReconnectCount limits reconnection attempts before triggering an alarm notification
 	var maxReconnectCount = 3
 	var alarmFlag bool
 	for {
@@ -79,12 +80,16 @@ func (c *consumer) GetConn() error {
 				if !alarmFlag {
 					slog.Error("RabbitMQ.Consumer", slog.String("info", err.Error()))
 					if c.alarm != nil {
-						_ = c.alarm.SetMsg(map[string]string{
+						if err := c.alarm.SetMsg(map[string]string{
 							"Title":   "RabbitMQ 连接失败超出阈值",
 							"Address": c.channel.config.Address,
 							"Queue":   c.channel.config.QueueName,
-						})
-						_ = c.alarm.Do()
+						}); err != nil {
+							slog.Error("RabbitMQ.Consumer alarm.SetMsg", slog.String("error", err.Error()))
+						}
+						if err := c.alarm.Do(); err != nil {
+							slog.Error("RabbitMQ.Consumer alarm.Do", slog.String("error", err.Error()))
+						}
 					}
 					alarmFlag = true
 				}

@@ -2,6 +2,7 @@ package gin
 
 import (
 	"io"
+	"log/slog"
 	"net/http"
 	"reflect"
 )
@@ -38,6 +39,7 @@ func NewTextEncoder(w io.Writer) TextEncoder {
 
 func (d TextEncoder) HttpResponseError(w http.ResponseWriter, code int, err error) {
 	if code < 200 || code > 599 {
+		slog.Warn("HttpResponseError: invalid status code, defaulting to 500", slog.Int("code", code))
 		code = http.StatusInternalServerError
 	}
 
