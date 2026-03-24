@@ -1,6 +1,7 @@
 package gin
 
 import (
+	"errors"
 	"io"
 	"net/http"
 	"reflect"
@@ -12,8 +13,21 @@ type FormDataDecoder struct {
 }
 
 func (f FormDataDecoder) Decode(v any) error {
-	t := reflect.TypeOf(v).Elem()
-	k := reflect.ValueOf(v).Elem()
+	if v == nil {
+		return errors.New("decode target cannot be nil")
+	}
+	rv := reflect.ValueOf(v)
+	if rv.Kind() != reflect.Ptr {
+		return errors.New("decode target must be a pointer")
+	}
+	if rv.IsNil() {
+		return errors.New("decode target pointer cannot be nil")
+	}
+	t := rv.Type().Elem()
+	k := rv.Elem()
+	if k.Kind() != reflect.Struct {
+		return errors.New("decode target must be a pointer to struct")
+	}
 	fieldNum := t.NumField()
 	for i := 0; i < fieldNum; i++ {
 		structKeyName := t.Field(i).Name
@@ -32,7 +46,10 @@ func (f FormDataDecoder) Decode(v any) error {
 			continue
 		}
 		if f.r.Form.Has(formKeyName) {
-			k.FieldByName(structKeyName).Set(reflect.ValueOf(f.r.FormValue(formKeyName)))
+			field := k.FieldByName(structKeyName)
+			if field.IsValid() && field.CanSet() && field.Kind() == reflect.String {
+				field.SetString(f.r.FormValue(formKeyName))
+			}
 		}
 	}
 

@@ -8,6 +8,7 @@ import (
 	"github.com/johnpoint/go-bootstrap/v2/utils"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 )
 
@@ -26,6 +27,7 @@ func NewApiServer(listen string, middlewares ...gin.HandlerFunc) *ApiServer {
 }
 
 type ApiServer struct {
+	mu          sync.Mutex
 	endpoints   map[string]Ep
 	listen      string
 	middlewares []gin.HandlerFunc
@@ -36,6 +38,8 @@ var _ core.Component = (*ApiServer)(nil)
 // AddEndpoint adds an endpoint to the API server.
 // Returns an error if the endpoint is already registered (duplicate route).
 func (d *ApiServer) AddEndpoint(ep Ep) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	if d.endpoints == nil {
 		d.endpoints = make(map[string]Ep)
 	}
@@ -64,7 +68,7 @@ func (d *ApiServer) Init(ctx context.Context) error {
 		slog.Debug("ApiServer.Init.RegisterEndpoint", slog.String("info", v.Method()+" | "+v.Path()))
 		err := RegisterEndpoint(routerGin, v)
 		if err != nil {
-			panic(err)
+			return err
 		}
 	}
 
