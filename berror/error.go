@@ -41,14 +41,23 @@ func GetErrMessage(err error) string {
 	return trueErr.Message
 }
 
-// WarpErr wraps an error with additional error information.
+// WrapErr wraps an error with additional error information.
 // It preserves the code and message from the original error while attaching the error info.
-func WarpErr(err *BErr, errInfo error) *BErr {
+// Returns Unknown error if err is nil to prevent panic.
+func WrapErr(err *BErr, errInfo error) *BErr {
+	if err == nil {
+		err = Unknown
+	}
 	return &BErr{
 		Code:      err.Code,
 		Message:   err.Message,
 		ErrorInfo: errInfo,
 	}
+}
+
+// Deprecated: WarpErr is a misspelled alias for WrapErr. Use WrapErr instead.
+func WarpErr(err *BErr, errInfo error) *BErr {
+	return WrapErr(err, errInfo)
 }
 
 // DecodeErr decodes an error into its code and message components.
