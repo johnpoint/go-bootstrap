@@ -18,44 +18,113 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Post code review analysis
+      - name: Get PR diff
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          git diff origin/${{ github.base_ref }}...HEAD | head -c 15000 > /tmp/pr.diff
+          echo "Diff size: $(wc -c < /tmp/pr.diff) bytes"
+          cat /tmp/pr.diff
+
+      - name: Generate AI code review
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node - <<'NODESCRIPT'
+          const fs = require('fs');
+          const https = require('https');
+
+          const diff = fs.readFileSync('/tmp/pr.diff', 'utf8');
+
+          if (!diff.trim()) {
+            fs.writeFileSync('/tmp/review.txt', 'No code changes found to review.');
+            process.exit(0);
+          }
+
+          const systemPrompt =
+            'You are a senior software engineer conducting a thorough code review. ' +
+            'Analyze the provided PR diff and give actionable feedback. ' +
+            'Structure your review with these sections:\n' +
+            '## Summary\nBrief overview of the changes.\n\n' +
+            '## Issues\nList any bugs, security vulnerabilities, or logic errors.\n\n' +
+            '## Suggestions\nCode quality, performance, and maintainability improvements.\n\n' +
+            '## Positives\nWell-written parts worth highlighting.\n\n' +
+            'Be specific, cite line numbers when relevant, and use markdown.';
+
+          const payload = JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: 'Please review the following PR diff:\n\n```diff\n' + diff + '\n```' }
+            ],
+            max_tokens: 2048,
+            temperature: 0.3
+          });
+
+          const options = {
+            hostname: 'models.inference.ai.azure.com',
+            path: '/chat/completions',
+            method: 'POST',
+            headers: {
+              'Authorization': 'Bearer ' + process.env.GITHUB_TOKEN,
+              'Content-Type': 'application/json',
+              'Content-Length': Buffer.byteLength(payload)
+            }
+          };
+
+          const req = https.request(options, (res) => {
+            let data = '';
+            res.on('data', chunk => { data += chunk; });
+            res.on('end', () => {
+              try {
+                const response = JSON.parse(data);
+                if (response.choices && response.choices[0]) {
+                  fs.writeFileSync('/tmp/review.txt', response.choices[0].message.content);
+                  console.log('Review generated successfully');
+                } else {
+                  console.error('Unexpected API response:', data);
+                  fs.writeFileSync('/tmp/review.txt', 'API Error: ' + JSON.stringify(response));
+                  process.exit(1);
+                }
+              } catch (e) {
+                console.error('Failed to parse response:', e.message);
+                fs.writeFileSync('/tmp/review.txt', 'Parse error: ' + data.substring(0, 500));
+                process.exit(1);
+              }
+            });
+          });
+
+          req.on('error', (e) => {
+            console.error('Request error:', e.message);
+            fs.writeFileSync('/tmp/review.txt', 'Request failed: ' + e.message);
+            process.exit(1);
+          });
+
+          req.write(payload);
+          req.end();
+          NODESCRIPT
+
+      - name: Post review comment
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const files = await github.rest.pulls.listFiles({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.issue.number
-            });
+            const fs = require('fs');
+            let review = 'Code review could not be generated. Please check workflow logs.';
 
-            let filesOutput = '';
-            let additions = 0;
-            let deletions = 0;
-
-            for (const file of files.data) {
-              additions += file.additions;
-              deletions += file.deletions;
-              filesOutput = filesOutput + '- `' + file.filename + '` (+' + file.additions + '/-' + file.deletions + ')\n';
+            try {
+              review = fs.readFileSync('/tmp/review.txt', 'utf8');
+            } catch (e) {
+              core.warning('Could not read review file: ' + e.message);
             }
 
-            const comment = '## 🤖 Copilot Code Review\n\n' +
-              'This PR has been marked for code review with the `copilot-review` label.\n\n' +
-              '### Changes Summary\n' +
-              '- **Files changed:** ' + files.data.length + '\n' +
-              '- **Lines added:** ' + additions + '\n' +
-              '- **Lines deleted:** ' + deletions + '\n\n' +
-              '### Modified Files\n' +
-              filesOutput + '\n' +
-              '### Recommendations\n' +
-              'Review the changes using:\n' +
-              '- GitHub Copilot inline suggestions\n' +
-              '- The PR diff view for detailed changes\n' +
-              '- `copilot review` command locally';
+            const body =
+              '## 🤖 AI Code Review\n\n' +
+              review +
+              '\n\n---\n*Powered by [GitHub Models](https://github.com/marketplace/models) · gpt-4o-mini*';
 
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: comment
+              body: body
             });
