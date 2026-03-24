@@ -22,7 +22,7 @@ type BaseEndpoint struct {
 	MiddlewareFunc []gin.HandlerFunc
 }
 
-func (b BaseEndpoint) SetMiddleware(middlewares []gin.HandlerFunc) {
+func (b *BaseEndpoint) SetMiddleware(middlewares []gin.HandlerFunc) {
 	b.MiddlewareFunc = middlewares
 }
 
