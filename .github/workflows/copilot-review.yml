@@ -65,7 +65,7 @@ jobs:
         run: node .github/scripts/review.js
 
       - name: Post review comment
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
